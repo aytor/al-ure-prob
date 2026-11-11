@@ -1,0 +1,44 @@
+
+name: "custom_acq"
+
+conjunction:
+  epsilon: 0.00001
+  sigma_r: 500.0
+  sigma_t: 1500.0
+  sigma_n: 800.0
+
+ocp:
+  preload: true
+  save: false
+  show_info:
+    iter: false
+    time: false
+
+gpr:
+  preload: false
+  save: true
+  track_steps: false
+  init_iter: 10
+  active_iter: 20
+  noise: false
+
+viz:
+  enabled: true
+  search_box:
+    show: false
+  trajectories:
+    show: false
+  plots:
+    contour:
+      show: true
+      type: "contour"
+      grid: 200
+    surface:
+      show: false
+      type: "surf"
+    plotly:
+      show: false
+      type: "3d"
+    action:
+      show: false
+      type: "q"

@@ -1,4 +1,4 @@
-gp_model/
+artefacts/
 __pycache__/
 *.pdf
 *.casadi

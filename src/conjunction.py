@@ -10,7 +10,7 @@ J2:float = 1082.7e-6  # J2 oblateness coefficient
 
 class Conjunction:
     # def __init__(self, sigma_r=22.0, sigma_t=50.0, sigma_n=28.0):
-    def __init__(self, sigma_r=500.0, sigma_t=1500.0, sigma_n=800.0):
+    def __init__(self, epsilon=1e-4, sigma_r=500.0, sigma_t=1500.0, sigma_n=800.0):
         # delta time
         self.dt = 1
         # final time
@@ -21,6 +21,9 @@ class Conjunction:
         self.range = (0, self.T)
         # conjunction timespan
         self.tspan = np.arange(0, self.T+self.dt, self.dt)
+
+        # process noise parameter
+        self.epsilon = epsilon
 
         # spacecraft 1 initial state
         self.ic1 = np.array([

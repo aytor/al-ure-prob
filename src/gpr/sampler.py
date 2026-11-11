@@ -5,7 +5,8 @@ from trieste.data import Dataset
 
 class Sampler:
 
-    def __init__(self, f, iobs, tobs, x_lim, y_lim, z_lim):
+    def __init__(
+        self, f, iobs, tobs, x_lim, y_lim, z_lim):
         self.ocp = f
         # self.cov = cov_eci # eci frame
 
@@ -48,7 +49,7 @@ class Sampler:
                 end='\t'
             )
             # print(f"{dx}", end=' -> ')
-            print(f"S={S}", end="\n")
+            print(f"Q(x)={S}", end="\n")
             # print(f"lh={lh}", end=" ")
             # print(f"p0={p0}", end=" ")
             # print(f"p1={p}", end="\n")
