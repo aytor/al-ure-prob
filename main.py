@@ -10,10 +10,6 @@ from src.gpr.build_al import run_active_learning
 from src.ocp.build_ocp import generate_casadi_fn
 from src import get_run_directory, initialize_run_directory
 
-
-# from multiprocessing import Pool
-# from scipy.integrate import solve_ivp
-# from scipy.stats import multivariate_normal
 from pathlib import Path
 #from matplotlib.animation import FFMpegWriter
 
