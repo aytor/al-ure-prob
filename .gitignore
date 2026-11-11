@@ -1,0 +1,6 @@
+gp_model/
+__pycache__/
+*.pdf
+*.casadi
+*.aux
+*.mp4
