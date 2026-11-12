@@ -1,5 +1,5 @@
 
-name: "custom_acq"
+name: "i10a30q3200"
 
 conjunction:
   epsilon: 0.00001
@@ -19,8 +19,9 @@ gpr:
   save: true
   track_steps: false
   init_iter: 10
-  active_iter: 20
-  noise: false
+  active_iter: 30
+  noise_variance: 0.00000001
+  quadrature_points: 3200
 
 viz:
   enabled: true
@@ -30,15 +31,21 @@ viz:
     show: false
   plots:
     contour:
-      show: true
+      show: false
       type: "contour"
       grid: 200
     surface:
       show: false
       type: "surf"
+    scatter3:
+      show: true
+      type: "scatter3"
+      grid: 150
+      acq_points: true
     plotly:
       show: false
       type: "3d"
+      grid: 201
     action:
       show: false
       type: "q"

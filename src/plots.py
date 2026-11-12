@@ -14,20 +14,18 @@ class Plots:
         Pc,
         gpr,
         conj,
-        x_lim,
-        y_lim,
-        z_lim,
     ):
 
         self._figs = []
         self._axes = []
         self._save_as = []
 
-        self.box = [x_lim, y_lim, z_lim]
-
         self.Pc = Pc
         self.gpr = gpr
         self.conj = conj
+
+        x_lim, y_lim, z_lim = conj.compute_search_limits()
+        self.box = [x_lim, y_lim, z_lim]
 
 
     def generate_meshgrid(self, grid):
@@ -35,9 +33,9 @@ class Plots:
         x_lim, y_lim, z_lim = self.box
 
         self.x_grid, self.y_grid, self.z_grid = np.mgrid[
-            -x_lim:x_lim:grid,
-            -y_lim:y_lim:grid,
-            -z_lim:z_lim:grid
+            -x_lim:x_lim:grid*1j,
+            -y_lim:y_lim:grid*1j,
+            -z_lim:z_lim:grid*1j
         ]
         self.mid = int((len(self.x_grid))/2)
 
@@ -88,7 +86,16 @@ class Plots:
         self._axes.append(ax)
         self._save_as.append("traj")
 
-    #def plot_Q(self,):
+    def plot_Q(self, name):
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        surf1 = ax.plot_surface(
+            self.x_grid, self.z_grid, self.s_grid_post,
+            cmap='viridis'
+        )
+
+
 
     def surf_posterior_density(self, name: str) -> None:
 
@@ -167,8 +174,84 @@ class Plots:
         # plt.tight_layout()
         # plt.show()
 
+    def scatter3_posterior_density(self, name):
 
-    def plotly3_posterior_density(self, name):
+        threshold1 = 0.1*self.p_grid_prior.max()
+        threshold2 = 0.1*self.p_grid_post.max()
+
+        mask1 = self.p_grid_prior > threshold1
+        mask2 = self.p_grid_post > threshold2
+
+        density1 = self.p_grid_prior[mask1]
+        density2 = self.p_grid_post[mask2]
+
+        alpha1 = density1 / density1.max()
+        alpha2 = density2 / density2.max()
+
+        alpha1 = 0.05 * alpha1
+        alpha2 = 0.05 * alpha2
+
+        blue = np.zeros((len(density1), 4))
+        red  = np.zeros((len(density2), 4))
+
+        blue[:, 2] = 0.9  # Blue
+        blue[:, 3] = alpha1  # Alpha
+        red[:, 0] = 1  # Red
+        red[:, 3] = alpha2  # Alpha
+
+        fig = plt.figure(figsize=(8, 7))
+        ax = fig.add_subplot(111, projection="3d")
+
+        prior = ax.scatter(
+            self.x_grid[mask1],
+            self.y_grid[mask1],
+            self.z_grid[mask1],
+            c=blue,
+            s=5,
+            depthshade=False
+        )
+        post = ax.scatter(
+            self.x_grid[mask2],
+            self.y_grid[mask2],
+            self.z_grid[mask2],
+            c=red,
+            s=5,
+            depthshade=False
+        )
+
+        # fig.colorbar(post, ax=ax, label="Probability density")
+
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+        ax.set_aspect('equal')
+
+        self._figs.append(fig)
+        self._axes.append(ax)
+        self._save_as.append(name)
+
+
+    def overlay_acquisition_points(self, name, data):
+
+        for i, n in enumerate(self._save_as):
+            if name == n:
+                print("  overlaying acquisition points")
+                querypoints = data.query_points.numpy()
+                self._axes[i].scatter(
+                    querypoints[:, 0],
+                    querypoints[:, 1],
+                    querypoints[:, 2],
+                    color='black',
+                    s=20,
+                    marker='+',
+                    label='Acquired points',
+                    depthshade=False
+                )
+
+                plt.show()
+
+
+    def plotly3_posterior_density(self):
 
         mx = np.max(self.p_grid_post)
 
@@ -197,9 +280,9 @@ class Plots:
             opacity=0.6,
             colorscale="Blues",
             caps=dict(x_show=False, y_show=False, z_show=False),
-            isomin=0.6,
-            isomax=0.7,
-            surface_count=1,
+            isomin=0.2,
+            isomax=0.8,
+            surface_count=4,
             name="Prior"
         ))
 
@@ -210,9 +293,6 @@ class Plots:
             )
         )
         fig.show()
-
-        self._figs.append(fig)
-        self._save_as.append(name)
 
 
     def set_focus_3d(self, ax, center, l):
@@ -344,7 +424,12 @@ class Plots:
         return ListedColormap(rgba)
 
 
-    def save(self) -> None:
+    def save(self, plots_dir) -> None:
+
+        if len(self._figs) == 0:
+            return
+
+        print(f"[PLOTS] saving plots in {plots_dir}")
 
         if len(self._save_as) != len(self._figs):
             raise ValueError(f"[PLOTS] number of plot names ({len(self._save_as)}) does not match number of figures ({len(self._figs)})")

@@ -17,7 +17,7 @@ class Sampler:
         self.search_space = Box(self.l, self.u)
 
         self.iter = 0
-        self.total_iter = tobs
+        self.active_iter = tobs
         self.num_initial_points = iobs
         self.initial_query_points = self.search_space.sample(self.num_initial_points)
         self.initial_data = self.observer(self.initial_query_points)
@@ -39,20 +39,16 @@ class Sampler:
             self.iter += 1
             # calculate prior probability
             # p0 = self.prior(dx)
-            # call solver to compute action S_Tf
             S, _, _, _ = self.ocp(dx)
             # calculate posterior
             # lh = np.exp(-(1/epsilon)*S)
             # p = lh*p0
             print(
-                f"iter: [{self.iter}/{self.total_iter+self.num_initial_points}]",
+                f"  iter: [{self.iter}/{self.active_iter+self.num_initial_points}]",
                 end='\t'
             )
             # print(f"{dx}", end=' -> ')
             print(f"Q(x)={S}", end="\n")
-            # print(f"lh={lh}", end=" ")
-            # print(f"p0={p0}", end=" ")
-            # print(f"p1={p}", end="\n")
             Y.append([float(S)])  # must be 2D (N,1)
 
         return Dataset(query_points, tf.convert_to_tensor(Y, dtype=tf.float64))

@@ -7,6 +7,7 @@ from src.plots import Plots
 from src.conjunction import Conjunction
 from src.gpr.sampler import Sampler
 from src.gpr.build_al import run_active_learning
+from src.gpr.acquisition import ProbabilityVarianceReduction
 from src.ocp.build_ocp import generate_casadi_fn
 from src import get_run_directory, initialize_run_directory
 
@@ -23,7 +24,7 @@ def ocp_setup(ocp_cfg, conj):
 
     if ocp_cfg.get("preload", True):
         import casadi as ca
-        print("[OCP] loading previously saved casadi function: ", end='', flush=True)
+        print("[OCP] loading previously saved casadi function", flush=True)
         model_dir = get_run_directory() / "models"
         try:
             return ca.Function.load(str(model_dir / 'instanton.casadi'));
@@ -31,7 +32,7 @@ def ocp_setup(ocp_cfg, conj):
             print("failed")
             raise FileNotFoundError(f"Casadi function not found in {model_dir}.")
     else:
-        print("[OCP] compiling new casadi function: ", end='', flush=True)
+        print("[OCP] compiling new casadi function", flush=True)
         return generate_casadi_fn(conj, ocp_cfg.get("save", True))
 
 
@@ -39,12 +40,12 @@ def gpr_setup(gpr_cfg, ocp, conj):
 
     if gpr_cfg.get("preload", True):
         from trieste.bayesian_optimizer import OptimizationResult
-        print("[GPR] loading prelearned GPR model:", end=' ', flush=True)
+        print("[GPR] loading prelearned GPR model", flush=True)
         model_dir = get_run_directory() / "models/gpr"
         try:
             sol = OptimizationResult.from_path(model_dir)
             print(f"LOADED FROM {model_dir}", end=' ', flush=True)
-            return sol.try_get_final_model()
+            return sol.try_get_final_model(), sol.try_get_final_dataset()
         except FileNotFoundError:
             print("failed")
             raise FileNotFoundError(f"Gaussian process model not found in {model_dir}.")
@@ -52,6 +53,14 @@ def gpr_setup(gpr_cfg, ocp, conj):
     else:
         print("[GPR] running active learning for new GPR model:")
         x_lim, y_lim, z_lim = conj.compute_search_limits(sig=8)
+        sampled_points_from_p0 = conj.sample_multiple_initial_states(
+            N=gpr_cfg.get("quadrature_points")
+        )
+        acquisition = ProbabilityVarianceReduction(
+            integration_points=sampled_points_from_p0,
+            noise_variance=gpr_cfg.get("noise_variance"),
+            epsilon=conj.epsilon,
+        )
         sampler = Sampler(
             ocp,
             gpr_cfg.get("init_iter", 5),
@@ -59,12 +68,13 @@ def gpr_setup(gpr_cfg, ocp, conj):
             x_lim, y_lim, z_lim
         )
         sol = run_active_learning(
-            sampler,
-            gpr_cfg.get("noise", False),
-            gpr_cfg.get("save", True),
-            gpr_cfg.get("track_steps", False)
+            sampler=sampler,
+            acquisition_fn=acquisition,
+            noise_variance=gpr_cfg.get("noise_variance", False),
+            save=gpr_cfg.get("save", True),
+            track_steps=gpr_cfg.get("track_steps", False)
         )
-        return sol.try_get_final_model()
+        return sol.try_get_final_model(), sol.try_get_final_dataset()
 
 
 def load_config(path) -> dict:
@@ -115,11 +125,9 @@ def main(config_path):
 
     # CASADI
     ocp = ocp_setup(ocp_cfg, conj)
-    print("done")
 
     # GPR ACTIVE LEARNING
-    gpr = gpr_setup(gpr_cfg, ocp, conj)
-    print("done")
+    gpr, data = gpr_setup(gpr_cfg, ocp, conj)
 
     # TOTAL PROBABILITY OF COLLISION
     print("MC Integration", flush=True)
@@ -146,16 +154,16 @@ def main(config_path):
 
     if viz_cfg.get("enabled", False):
         print("[PLOTS] enabled")
-        run_plots(viz_cfg, Pc, ocp, gpr, conj, x_lim, y_lim, z_lim)
+        run_plots(viz_cfg, Pc, ocp, gpr, data, conj)
 
 
-def run_plots(viz_cfg, Pc, ocp, gpr, conj, x_lim, y_lim, z_lim):
+def run_plots(viz_cfg, Pc, ocp, gpr, data, conj):
 
-    plotter = Plots(Pc, gpr, conj, x_lim, y_lim, z_lim)
+    plotter = Plots(Pc, gpr, conj)
     plots_dir = get_run_directory() / "plots"
 
-    if viz_cfg["search_box"]["show"]:
-        plotter.plot_box_scene(conj.cov_eci, x_lim, y_lim, z_lim)
+    # if viz_cfg["search_box"]["show"]:
+    #     plotter.plot_box_scene(conj.cov_eci, x_lim, y_lim, z_lim)
 
     if viz_cfg["trajectories"]["show"]:
         plotter.plot_trajectories(ocp)
@@ -163,20 +171,27 @@ def run_plots(viz_cfg, Pc, ocp, gpr, conj, x_lim, y_lim, z_lim):
     for plot_name, plot_cfg in viz_cfg.get("plots", {}).items():
         plot_type = plot_cfg.get("type", "contour")
         plot_grid = plot_cfg.get("grid", 200)
-        plotter.generate_meshgrid(plot_grid)
+
         if plot_cfg.get("show", False):
+            print("  generating meshgrid")
+            plotter.generate_meshgrid(plot_grid)
             if plot_type == "contour":
                 print("  2D contour plot")
                 plotter.contour_posterior_density(plot_name)
             if plot_type == "surf":
                 print("  2D surface plot")
                 plotter.surf_posterior_density(plot_name)
+            if plot_type == "scatter3":
+                print("  3D scatter plot")
+                plotter.scatter3_posterior_density(plot_name)
+                if plot_cfg.get("acq_points", False):
+                    print("  overlaying acquisition points")
+                    plotter.overlay_acquisition_points(plot_name, data)
             if plot_type == "3d":
                 print("  3D surface plot")
-                plotter.plotly3_posterior_density(plot_name)
+                plotter.plotly3_posterior_density()
 
-    print(f"[PLOTS] saving plots in {plots_dir}")
-    plotter.save()
+    plotter.save(plots_dir)
 
 
 def parse_args():

@@ -182,13 +182,25 @@ class Conjunction:
         """
 
         # Create multivariate normal distribution
-        dist = multivariate_normal(mean=[0,0,0], cov=self.cov_eci)
+        dist = np.random.multivariate_normal(mean=[0,0,0], cov=self.cov_eci)
         # Sample a single point
         sample = dist.rvs()
         # Evaluate PDF at that sampled point
         pdf = dist.pdf(sample)
 
         return sample, pdf
+
+    def sample_multiple_initial_states(self, N):
+        """
+        Sample multiple points from a Gaussian distribution.
+        """
+        # Create multivariate normal distribution
+        samples = np.random.multivariate_normal(
+            mean=np.zeros(self.cov_eci.shape[0]),
+            cov=self.cov_eci,
+            size=N
+        )
+        return samples
 
     def compute_search_limits(self, sig=8):
 
